@@ -22,8 +22,9 @@ public class BookingTests
         booking.Period.ShouldBe(period);
         booking.IsConfirmed.ShouldBeFalse();
 
-        // 4. Confirm the booking.
-        booking.Confirm();
+        // 4. Check availability and confirm the booking.
+        var service = new BookingService();
+        service.Confirm(booking, []);
 
         booking.IsConfirmed.ShouldBeTrue();
     }
