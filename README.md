@@ -34,17 +34,15 @@ Choose a room → Choose a time period → Create a booking → Confirm the book
 - `Booking` is an entity and aggregate root. Its `Confirm()` method controls confirmation.
 
 The three types are in `TE.DomainStorytellingApplied.Domain/Booking.cs`.
-The four steps are in `TE.DomainStorytellingApplied.Console/Program.cs`.
+The four steps are exercised by `TE.DomainStorytellingApplied.Domain.Tests/BookingTests.cs`.
+The solution contains only domain objects and tests; there is no application.
 
 ```sh
-dotnet run --project TE.DomainStorytellingApplied.Console
+dotnet test
 ```
 
-Output:
-
-```text
-Meeting room: confirmed = True
-```
+The test checks that a new booking keeps the selected room and time period,
+starts unconfirmed, and becomes confirmed after calling `Confirm()`.
 
 This minimal example shows the structure only. Validation, double-booking checks,
 and persistence can be added later.
