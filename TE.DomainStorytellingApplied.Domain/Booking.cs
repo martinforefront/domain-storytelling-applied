@@ -1,16 +1,16 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-// ENTITY - has its own identity.
+// Booked room (entity)
 public class Room(int id, string name)
 {
     public int Id { get; } = id;
     public string Name { get; } = name;
 }
 
-// VALUE OBJECT - defined by its values.
+// Choosen time (Value object).
 public record TimePeriod(DateTime Start, DateTime End);
 
-// ENTITY + AGGREGATE ROOT - controls changes to the booking.
+// Make a booking (aggregate root).
 public class Booking(int id, Room room, TimePeriod period)
 {
     public int Id { get; } = id;
