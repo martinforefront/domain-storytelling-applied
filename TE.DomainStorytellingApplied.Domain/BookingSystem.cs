@@ -1,6 +1,5 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-// Samordnar rummens scheman och bokningsmeddelanden.
 public class BookingSystem(NotificationService notifications)
 {
     private readonly Dictionary<int, RoomSchedule> schedules = [];
@@ -25,11 +24,9 @@ public class BookingSystem(NotificationService notifications)
             notifications.Send(booker.Email,
                 "Bokningen kunde inte genomföras. Rummet är redan bokat.");
 
-            // Ett nekat försök returneras obekräftat och läggs inte i schemat.
             return new Booking(bookingId, schedule.Room, period, booker);
         }
 
-        // Schemat behåller bokningen även om meddelandet inte kan levereras.
         notifications.Send(booking.Booker.Email,
             $"Din bokning av {booking.Room.Name} är bekräftad: " +
             $"{booking.Period.Start:yyyy-MM-dd HH:mm}–{booking.Period.End:yyyy-MM-dd HH:mm}.");

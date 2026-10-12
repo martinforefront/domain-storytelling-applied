@@ -1,6 +1,5 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-// Entitet i rummets schema. Ändringar går genom RoomSchedule.
 public class Booking
 {
     internal Booking(int id, Room room, TimePeriod period, Booker booker)

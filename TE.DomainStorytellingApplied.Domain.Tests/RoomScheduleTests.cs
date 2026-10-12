@@ -5,7 +5,7 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 public class RoomScheduleTests
 {
     private readonly Booker booker = new(1, "Anna", "anna@example.com");
- // kontrollerar att överlappande bokningar nekas
+
     [Theory]
     [InlineData(9, 11)]
     [InlineData(11, 13)]
@@ -22,7 +22,7 @@ public class RoomScheduleTests
 
         existing.IsConfirmed.ShouldBeTrue();
     }
-    //bokningar utan överlappning bekräftas
+
     [Theory]
     [InlineData(8, 9)]
     [InlineData(9, 10)]
@@ -37,7 +37,7 @@ public class RoomScheduleTests
 
         booking.IsConfirmed.ShouldBeTrue();
     }
-    // kontrollerar att avbokning fungerar
+
     [Fact]
     public void GivenCancelledBooking_WhenReservingSameTime_ShouldConfirm()
     {
@@ -52,7 +52,7 @@ public class RoomScheduleTests
         Should.Throw<RoomUnavailableException>(
             () => schedule.Reserve(3, booker, Period(10, 12)));
     }
-    // kontrollerar att dubbla boknings id nekas
+
     [Fact]
     public void GivenDuplicateId_WhenReservingFreeTime_ShouldReject()
     {
@@ -63,7 +63,7 @@ public class RoomScheduleTests
 
         schedule.Reserve(2, booker, Period(12, 13)).IsConfirmed.ShouldBeTrue();
     }
-    // kontrollerar att avbokning av okänd bokning inte ändrar andra bokningar
+
     [Fact]
     public void GivenUnknownBooking_WhenCancelling_ShouldNotFreeExistingTime()
     {

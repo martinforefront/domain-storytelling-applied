@@ -4,7 +4,7 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 
 public class BookingSystemTests
 {
-    // kontrollerar att bokningar skapas, bekräftas och notifieras korrekt
+
     [Fact]
     public void GivenAvailableRoom_WhenBooking_ShouldCreateConfirmAndNotify()
     {
@@ -26,7 +26,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att bokningar nekas när rummet redan är upptaget
+
     public void GivenOccupiedRoom_WhenBooking_ShouldRejectSecondBookingAndNotifyItsBooker()
     {
         using var output = new StringWriter();
@@ -47,7 +47,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att bokningar direkt efter varandra bekräftas korrekt
+
     public void GivenAdjacentPeriod_WhenBooking_ShouldConfirmBothWithDifferentIds()
     {
         using var output = new StringWriter();
@@ -64,7 +64,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att en nekad bokning tillåter bokning av dess fria del
+
     public void GivenRejectedBooking_WhenBookingItsFreePart_ShouldSucceed()
     {
         using var output = new StringWriter();
@@ -82,7 +82,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att misslyckad notifiering inte frigör rummet
+
     public void GivenNotificationFailure_WhenBooking_ShouldKeepRoomOccupiedAndPropagateFailure()
     {
         using var output = new FailingWriter();
@@ -105,7 +105,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att bokningar i olika rum bekräftas oberoende av varandra
+
     public void GivenDifferentRooms_WhenBookingSameTime_ShouldConfirmBoth()
     {
         using var output = new StringWriter();
@@ -120,7 +120,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att bokningar med samma rums-id nekas
+
     public void GivenSameRoomIdInDifferentObjects_WhenBookingSameTime_ShouldReject()
     {
         using var output = new StringWriter();
@@ -134,7 +134,7 @@ public class BookingSystemTests
     }
 
     [Fact]
-    // kontrollerar att avbokning frigör rummet för ny bokning
+
     public void GivenCancelledBooking_WhenBookingAgain_ShouldReuseFreedTime()
     {
         using var output = new StringWriter();

@@ -1,11 +1,9 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-// Chosen time (Value object).
 public record TimePeriod
 {
     public DateTime Start { get; }
     public DateTime End { get; }
-// Validation for the time period.
     public TimePeriod(DateTime start, DateTime end)
     {
         if (end <= start)
