@@ -25,24 +25,55 @@ dotnet test
 Domain objects goes in `TE.DomainStorytellingApplied.Domain` \
 Test cases goes in `TE.DomainStorytellingApplied.Domain.Tests`
 
-# Simple room booking example
+# Room booking aggregate
 
-Choose a room → Choose a time period → Create a booking → Confirm the booking.
+The solution contains a class library and tests only; there is no application.
 
-- `Room` is an entity with an ID.
-- `TimePeriod` is a value object, defined by its start and end values.
-- `Booking` is an entity and aggregate root. Its `Confirm()` method controls confirmation.
+- `RoomSchedule` is the aggregate root for one room, identified by the room ID.
+  Its private list owns the room's bookings. `Reserve` checks availability,
+  creates and confirms the booking, and stores it. `Cancel` releases its time.
+- `Booking` is an entity inside the schedule. Its constructor and state-changing
+  methods are internal, so callers in other projects use the aggregate root.
+  Internal access still permits other classes in the same assembly to call them.
+- `Room` and `Booker` are independent entities referenced by bookings.
+- `TimePeriod` is a value object that requires the end to be after the start.
 
-The three types are in `TE.DomainStorytellingApplied.Domain/Booking.cs`.
-The four steps are exercised by `TE.DomainStorytellingApplied.Domain.Tests/BookingTests.cs`.
-The solution contains only domain objects and tests; there is no application.
+Overlapping active bookings are rejected with `RoomUnavailableException`.
+Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
+including after cancellation. Cancellation of an unknown booking is rejected.
+`IsConfirmed` is false for cancelled bookings; there is no separate cancelled status yet.
 
-```sh
-dotnet test
+# Booking coordination and notifications
+
+`BookingSystem` replaces the old coordination flow and holds one `RoomSchedule`
+per room ID. `BookingService` has been removed; overlap rules now live in the
+aggregate root.
+
+```csharp
+using var output = new StringWriter();
+var system = new BookingSystem(new NotificationService(output));
+var booker = new Booker(1, "Anna", "anna@example.com");
+var room = new Room(1, "Meeting room");
+var period = new TimePeriod(
+    new DateTime(2026, 11, 1, 10, 0, 0),
+    new DateTime(2026, 11, 1, 12, 0, 0));
+var booking = system.Book(booker, room, period);
+system.Cancel(room.Id, booking.Id);
 ```
 
-The test checks that a new booking keeps the selected room and time period,
-starts unconfirmed, and becomes confirmed after calling `Confirm()`.
+`Book` obtains the room's schedule, allocates an ID, and calls `Reserve`.
+It writes confirmation or rejection to the booker's email address through
+`NotificationService`. This writes to a supplied `TextWriter`; no real email is sent.
+A rejected attempt is returned as an unconfirmed `Booking` and is not stored in
+any schedule. Notification failure does not undo a successful reservation.
+Cancellation delegates to the schedule and does not send a notification.
 
-This minimal example shows the structure only. Validation, double-booking checks,
-and persistence can be added later.
+Use the same system instance for related booking attempts. The schedules and IDs
+are in memory only. Separate instances do not share reservations. This example
+supports sequential calls, not concurrent booking attempts. A persistent,
+multi-user version needs atomic saving and concurrency control across instances.
+
+`RoomScheduleTests` covers overlap, adjacent times, duplicate IDs, and cancellation.
+`BookingSystemTests` covers notifications, room identity, cancellation, rejected
+attempts, and retained reservations after notification failure.
+Run the scenarios with `dotnet test`.

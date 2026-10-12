@@ -4,6 +4,7 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 
 public class TimePeriodTests
 {
+    // testar om ogiltig tid hanteras
     [Fact]
     public void GivenEndAfterStart_WhenCreated_ShouldKeepTheTimes()
     {

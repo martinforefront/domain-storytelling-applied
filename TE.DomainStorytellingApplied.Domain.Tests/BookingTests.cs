@@ -5,27 +5,26 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 public class BookingTests
 {
     [Fact]
-    public void GivenANewBooking_WhenConfirmed_ShouldBeConfirmed()
+    public void GivenAvailableSchedule_WhenReserving_ShouldKeepBookingDetailsAndConfirm()
     {
-        // 1. Choose a room.
+        // välj ett rum
         var room = new Room(1, "Meeting room");
 
-        // 2. Choose a time period.
+        // välj en tid
         var period = new TimePeriod(
             new DateTime(2026, 11, 1, 10, 0, 0),
             new DateTime(2026, 11, 1, 11, 0, 0));
 
-        // 3. Create a booking.
-        var booking = new Booking(1, room, period);
+        // ange vem som bokar
+        var booker = new Booker(1, "Anna Andersson", "anna@example.com");
+
+        // skapa bokning
+        var schedule = new RoomSchedule(room);
+        var booking = schedule.Reserve(1, booker, period);
 
         booking.Room.ShouldBe(room);
         booking.Period.ShouldBe(period);
-        booking.IsConfirmed.ShouldBeFalse();
-
-        // 4. Check availability and confirm the booking.
-        var service = new BookingService();
-        service.Confirm(booking, []);
-
+        booking.Booker.ShouldBeSameAs(booker);
         booking.IsConfirmed.ShouldBeTrue();
     }
 }

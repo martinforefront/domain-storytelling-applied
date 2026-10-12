@@ -1,6 +1,6 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-// Booked room (entity)
+// Bookat rum (entity)
 public class Room(int id, string name)
 {
     public int Id { get; } = id;
