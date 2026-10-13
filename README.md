@@ -46,34 +46,43 @@ including after cancellation. Cancellation of an unknown booking is rejected.
 `Booking.Status` distinguishes `Reserved`, `Confirmed`, and `Cancelled`.
 New bookings start as `Reserved`. Confirmation is a separate operation through
 `RoomSchedule.Confirm(bookingId)`; repeating confirmation is allowed. `IsConfirmed` is derived from the status and is false after cancellation.
-The existing rejected-attempt flow still returns an unstored booking in the initial
-`Reserved` state; it does not reserve any time in the schedule.
 
-# Booking coordination and notifications
+# Reservation coordination
 
 `BookingSystem` replaces the old coordination flow and holds one `RoomSchedule`
 per room ID. `BookingService` has been removed; overlap rules now live in the
 aggregate root.
 
 ```csharp
-using var output = new StringWriter();
-var system = new BookingSystem(new NotificationService(output));
+var system = new BookingSystem();
 var booker = new Booker(1, "Anna", "anna@example.com");
 var room = new Room(1, "Meeting room");
 var period = new TimePeriod(
     new DateTime(2026, 11, 1, 10, 0, 0),
     new DateTime(2026, 11, 1, 12, 0, 0));
-var booking = system.Book(booker, room, period);
-system.Cancel(room.Id, booking.Id);
+var result = system.Reserve(booker, room, period);
+if (result.Booking is { } booking)
+{
+    // The booking is Reserved, not Confirmed.
+    system.Cancel(room.Id, booking.Id);
+}
+else
+{
+    // result.Outcome == ReservationOutcome.RoomUnavailable
+    // Show available times so the user can choose again.
+}
 ```
 
-`Book` obtains the room's schedule, allocates an ID, and calls `Reserve` followed
-by `Confirm`, preserving the immediate confirmation flow for now.
-It writes confirmation or rejection to the booker's email address through
-`NotificationService`. This writes to a supplied `TextWriter`; no real email is sent.
-A rejected attempt is returned as an unconfirmed `Booking` and is not stored in
-any schedule. Notification failure does not undo a successful reservation.
-Cancellation delegates to the schedule and does not send a notification.
+`Reserve` obtains the room's schedule, allocates an ID, and delegates to
+`RoomSchedule.Reserve`. It returns a `ReservationResult`: `Reserved` with a booking,
+or `RoomUnavailable` with no booking. A successful reservation is stored and blocks
+its time immediately, but is not confirmed. A rejected attempt creates no booking
+and occupies no additional time. The result describes the reservation attempt;
+the booking's current lifecycle is available through `Booking.Status`.
+
+`BookingSystem` no longer depends on `NotificationService` and sends no messages.
+The notification class remains available for the later confirmation flow.
+Cancellation delegates to the schedule. Reservations have no automatic expiry yet.
 
 Use the same system instance for related booking attempts. The schedules and IDs
 are in memory only. Separate instances do not share reservations. This example
@@ -81,6 +90,6 @@ supports sequential calls, not concurrent booking attempts. A persistent,
 multi-user version needs atomic saving and concurrency control across instances.
 
 `RoomScheduleTests` covers overlap, adjacent times, duplicate IDs, and cancellation.
-`BookingSystemTests` covers notifications, room identity, cancellation, rejected
-attempts, and retained reservations after notification failure.
+`BookingSystemTests` covers reservation results, room identity, cancellation,
+and rejected attempts without booking objects.
 Run the scenarios with `dotnet test`.

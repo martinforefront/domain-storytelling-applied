@@ -4,166 +4,116 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 
 public class BookingSystemTests
 {
+    private readonly Booker booker = new(1, "Anna", "anna@example.com");
 
     [Fact]
-    public void GivenAvailableRoom_WhenBooking_ShouldCreateConfirmAndNotify()
+    public void GivenAvailableRoom_WhenReserving_ShouldKeepDetailsWithoutConfirming()
     {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var system = new BookingSystem();
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 11);
 
-        var booking = system.Book(booker, room, period);
+        var result = system.Reserve(booker, room, period);
 
+        result.Outcome.ShouldBe(ReservationOutcome.Reserved);
+        var booking = result.Booking.ShouldNotBeNull();
         booking.Booker.ShouldBeSameAs(booker);
         booking.Room.ShouldBeSameAs(room);
         booking.Period.ShouldBe(period);
-        booking.IsConfirmed.ShouldBeTrue();
-        output.ToString().ShouldBe(
-            $"Till: anna@example.com{Environment.NewLine}" +
-            $"Din bokning av Meeting room är bekräftad: 2026-11-01 10:00–2026-11-01 11:00.{Environment.NewLine}");
+        booking.Status.ShouldBe(BookingStatus.Reserved);
+        booking.IsConfirmed.ShouldBeFalse();
     }
 
     [Fact]
-
-    public void GivenOccupiedRoom_WhenBooking_ShouldRejectSecondBookingAndNotifyItsBooker()
+    public void GivenReservedRoom_WhenReservingSameTime_ShouldReturnUnavailableWithoutBooking()
     {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
+        var system = new BookingSystem();
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 12);
-        var first = system.Book(new Booker(1, "Anna", "anna@example.com"), room, period);
-        output.GetStringBuilder().Clear();
+        var first = system.Reserve(booker, room, period).Booking.ShouldNotBeNull();
 
-        var second = system.Book(new Booker(2, "Bertil", "bertil@example.com"), room, period);
+        var second = system.Reserve(new Booker(2, "Bertil", "bertil@example.com"), room, period);
 
-        first.IsConfirmed.ShouldBeTrue();
-        second.IsConfirmed.ShouldBeFalse();
-        second.Id.ShouldNotBe(first.Id);
-        output.ToString().ShouldBe(
-            $"Till: bertil@example.com{Environment.NewLine}" +
-            $"Bokningen kunde inte genomföras. Rummet är redan bokat.{Environment.NewLine}");
+        second.Outcome.ShouldBe(ReservationOutcome.RoomUnavailable);
+        second.Booking.ShouldBeNull();
+        first.Status.ShouldBe(BookingStatus.Reserved);
     }
 
     [Fact]
-
-    public void GivenAdjacentPeriod_WhenBooking_ShouldConfirmBothWithDifferentIds()
+    public void GivenAdjacentPeriod_WhenReserving_ShouldReserveBothWithDifferentIds()
     {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var system = new BookingSystem();
         var room = new Room(1, "Meeting room");
 
-        var first = system.Book(booker, room, CreatePeriod(10, 11));
-        var second = system.Book(booker, room, CreatePeriod(11, 12));
+        var first = system.Reserve(booker, room, CreatePeriod(10, 11)).Booking.ShouldNotBeNull();
+        var second = system.Reserve(booker, room, CreatePeriod(11, 12)).Booking.ShouldNotBeNull();
 
-        first.IsConfirmed.ShouldBeTrue();
-        second.IsConfirmed.ShouldBeTrue();
+        first.Status.ShouldBe(BookingStatus.Reserved);
+        second.Status.ShouldBe(BookingStatus.Reserved);
         second.Id.ShouldNotBe(first.Id);
     }
 
     [Fact]
-
-    public void GivenRejectedBooking_WhenBookingItsFreePart_ShouldSucceed()
+    public void GivenRejectedReservation_WhenReservingItsFreePart_ShouldSucceed()
     {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var system = new BookingSystem();
         var room = new Room(1, "Meeting room");
-        system.Book(booker, room, CreatePeriod(10, 12));
-        var rejected = system.Book(booker, room, CreatePeriod(9, 11));
+        system.Reserve(booker, room, CreatePeriod(10, 12));
+        var rejected = system.Reserve(booker, room, CreatePeriod(9, 11));
 
-        var booking = system.Book(booker, room, CreatePeriod(9, 10));
+        var result = system.Reserve(booker, room, CreatePeriod(9, 10));
 
-        rejected.IsConfirmed.ShouldBeFalse();
-        booking.IsConfirmed.ShouldBeTrue();
-        booking.Id.ShouldNotBe(rejected.Id);
+        rejected.Outcome.ShouldBe(ReservationOutcome.RoomUnavailable);
+        rejected.Booking.ShouldBeNull();
+        result.Outcome.ShouldBe(ReservationOutcome.Reserved);
+        result.Booking.ShouldNotBeNull().Status.ShouldBe(BookingStatus.Reserved);
     }
 
     [Fact]
-
-    public void GivenNotificationFailure_WhenBooking_ShouldKeepRoomOccupiedAndPropagateFailure()
+    public void GivenDifferentRooms_WhenReservingSameTime_ShouldReserveBoth()
     {
-        using var output = new FailingWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var system = new BookingSystem();
+
+        var first = system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+        var second = system.Reserve(booker, new Room(2, "Meeting room"), CreatePeriod(10, 12));
+
+        first.Outcome.ShouldBe(ReservationOutcome.Reserved);
+        second.Outcome.ShouldBe(ReservationOutcome.Reserved);
+    }
+
+    [Fact]
+    public void GivenSameRoomIdInDifferentObjects_WhenReservingSameTime_ShouldReject()
+    {
+        var system = new BookingSystem();
+        system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+
+        var second = system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+
+        second.Outcome.ShouldBe(ReservationOutcome.RoomUnavailable);
+        second.Booking.ShouldBeNull();
+    }
+
+    [Fact]
+    public void GivenCancelledReservation_WhenReservingAgain_ShouldReuseFreedTime()
+    {
+        var system = new BookingSystem();
         var room = new Room(1, "Meeting room");
-        var period = CreatePeriod(10, 12);
-
-        var exception = Should.Throw<InvalidOperationException>(
-            () => system.Book(booker, room, period));
-
-        exception.Message.ShouldBe("Delivery failed.");
-        output.Attempts.ShouldBe(1);
-        output.FailDelivery = false;
-
-        var second = system.Book(booker, room, period);
-
-        second.IsConfirmed.ShouldBeFalse();
-        output.ToString().ShouldContain("Rummet är redan bokat.");
-    }
-
-    [Fact]
-
-    public void GivenDifferentRooms_WhenBookingSameTime_ShouldConfirmBoth()
-    {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
-
-        var first = system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
-        var second = system.Book(booker, new Room(2, "Meeting room"), CreatePeriod(10, 12));
-
-        first.IsConfirmed.ShouldBeTrue();
-        second.IsConfirmed.ShouldBeTrue();
-    }
-
-    [Fact]
-
-    public void GivenSameRoomIdInDifferentObjects_WhenBookingSameTime_ShouldReject()
-    {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
-        system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
-
-        var second = system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
-
-        second.IsConfirmed.ShouldBeFalse();
-    }
-
-    [Fact]
-
-    public void GivenCancelledBooking_WhenBookingAgain_ShouldReuseFreedTime()
-    {
-        using var output = new StringWriter();
-        var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
-        var room = new Room(1, "Meeting room");
-        var first = system.Book(booker, room, CreatePeriod(10, 12));
+        var first = system.Reserve(booker, room, CreatePeriod(10, 12)).Booking.ShouldNotBeNull();
 
         system.Cancel(room.Id, first.Id);
-        var second = system.Book(booker, room, CreatePeriod(10, 12));
+        var second = system.Reserve(booker, room, CreatePeriod(10, 12)).Booking.ShouldNotBeNull();
 
-        first.IsConfirmed.ShouldBeFalse();
-        second.IsConfirmed.ShouldBeTrue();
+        first.Status.ShouldBe(BookingStatus.Cancelled);
+        second.Status.ShouldBe(BookingStatus.Reserved);
+        second.Id.ShouldNotBe(first.Id);
     }
 
-    private sealed class FailingWriter : StringWriter
+    [Fact]
+    public void GivenUnknownRoom_WhenCancelling_ShouldReject()
     {
-        public bool FailDelivery { get; set; } = true;
-        public int Attempts { get; private set; }
+        var system = new BookingSystem();
 
-        public override void WriteLine(string? value)
-        {
-            Attempts++;
-            if (FailDelivery)
-            {
-                throw new InvalidOperationException("Delivery failed.");
-            }
-            base.WriteLine(value);
-        }
+        Should.Throw<KeyNotFoundException>(() => system.Cancel(1, 1));
     }
 
     private static TimePeriod CreatePeriod(int startHour, int endHour) => new(

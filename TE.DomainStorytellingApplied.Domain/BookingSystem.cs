@@ -1,11 +1,11 @@
 namespace TE.DomainStorytellingApplied.Domain;
 
-public class BookingSystem(NotificationService notifications)
+public class BookingSystem
 {
     private readonly Dictionary<int, RoomSchedule> schedules = [];
     private int nextBookingId = 1;
 
-    public Booking Book(Booker booker, Room room, TimePeriod period)
+    public ReservationResult Reserve(Booker booker, Room room, TimePeriod period)
     {
         if (!schedules.TryGetValue(room.Id, out var schedule))
         {
@@ -14,25 +14,15 @@ public class BookingSystem(NotificationService notifications)
         }
 
         int bookingId = nextBookingId++;
-        Booking booking;
         try
         {
-            booking = schedule.Reserve(bookingId, booker, period);
+            var booking = schedule.Reserve(bookingId, booker, period);
+            return new ReservationResult(booking);
         }
         catch (RoomUnavailableException)
         {
-            notifications.Send(booker.Email,
-                "Bokningen kunde inte genomföras. Rummet är redan bokat.");
-
-            return new Booking(bookingId, schedule.Room, period, booker);
+            return new ReservationResult(null);
         }
-
-        schedule.Confirm(booking.Id);
-
-        notifications.Send(booking.Booker.Email,
-            $"Din bokning av {booking.Room.Name} är bekräftad: " +
-            $"{booking.Period.Start:yyyy-MM-dd HH:mm}–{booking.Period.End:yyyy-MM-dd HH:mm}.");
-        return booking;
     }
 
     public void Cancel(int roomId, int bookingId)
