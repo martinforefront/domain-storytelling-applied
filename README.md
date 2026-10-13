@@ -54,7 +54,9 @@ per room ID. `BookingService` has been removed; overlap rules now live in the
 aggregate root.
 
 ```csharp
-var system = new BookingSystem();
+// Supply an IPaymentGateway implementation (tests use StubPaymentGateway).
+IPaymentGateway payments = GetPaymentGateway();
+var system = new BookingSystem(payments, new NotificationService(Console.Out));
 var booker = new Booker(1, "Anna", "anna@example.com");
 var room = new Room(1, "Meeting room");
 var period = new TimePeriod(
@@ -80,9 +82,12 @@ its time immediately, but is not confirmed. A rejected attempt creates no bookin
 and occupies no additional time. The result describes the reservation attempt;
 the booking's current lifecycle is available through `Booking.Status`.
 
-`BookingSystem` no longer depends on `NotificationService` and sends no messages.
-The notification class remains available for the later confirmation flow.
-Cancellation delegates to the schedule. Reservations have no automatic expiry yet.
+Reservation itself sends no message. `BookingSystem.Pay(roomId, bookingId)` starts a
+payment attempt through the aggregate and passes its ID to `IPaymentGateway`.
+An approved payment confirms the booking and sends a confirmation through
+`NotificationService` (a TextWriter, not real email). A declined payment leaves the
+booking reserved, so the caller can pay again or cancel to release the time.
+Reservations have no automatic expiry yet.
 
 Use the same system instance for related booking attempts. The schedules and IDs
 are in memory only. Separate instances do not share reservations. This example
@@ -93,3 +98,29 @@ multi-user version needs atomic saving and concurrency control across instances.
 `BookingSystemTests` covers reservation results, room identity, cancellation,
 and rejected attempts without booking objects.
 Run the scenarios with `dotnet test`.
+
+# Payment attempts
+
+`PaymentAttempt` is an entity owned by `Booking`, with a unique Guid and a status:
+`Pending`, `Succeeded`, or `Failed`. The booking exposes a read-only history.
+Only the aggregate root starts attempts and records results. A reservation can
+have at most one pending attempt. A confirmed or cancelled booking cannot start
+a payment. Each retry after a decline creates a new attempt ID.
+
+`IPaymentGateway.Pay(attemptId)` returns true for approval and false for a definite
+decline. Tests use `StubPaymentGateway` with a sequence of approved/declined results.
+There is no real payment integration, price, currency, or card handling in this example.
+`GetPaymentGateway()` in the example is a placeholder for supplying that implementation.
+
+A gateway exception leaves the attempt pending because the payment outcome is
+unknown. New attempts and cancellation are blocked until the result is resolved
+with `BookingSystem.RecordPaymentResult(roomId, bookingId, attemptId, succeeded)`.
+This method expects a trusted payment result; no external callback endpoint is provided.
+Repeated identical results have no further effect or notification; contradictory
+results are rejected. The attempt ID must belong to the specified booking.
+
+Notification failure propagates but does not undo a successful payment or booking.
+Automatic notification retries, refunds, persistence, and concurrent requests are
+not implemented. Cancellation of a confirmed booking still only releases its time;
+it does not refund a payment. `RoomSchedule.Confirm` remains available from the
+previous example, while the BookingSystem flow confirms only after payment approval.

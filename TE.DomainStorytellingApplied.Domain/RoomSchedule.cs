@@ -30,18 +30,25 @@ public class RoomSchedule(Room room)
         return booking;
     }
 
+    public PaymentAttempt StartPayment(int bookingId) => FindBooking(bookingId).StartPayment();
+
+    public bool RecordPaymentResult(int bookingId, Guid paymentAttemptId, bool succeeded) =>
+        FindBooking(bookingId).RecordPaymentResult(paymentAttemptId, succeeded);
+
+    internal Booking FindBooking(int bookingId) =>
+        bookings.SingleOrDefault(existing => existing.Id == bookingId)
+        ?? throw new KeyNotFoundException("Bokningen finns inte i rummets schema.");
+
     public void Confirm(int bookingId)
     {
-        var booking = bookings.SingleOrDefault(existing => existing.Id == bookingId)
-            ?? throw new KeyNotFoundException("Bokningen finns inte i rummets schema.");
+        var booking = FindBooking(bookingId);
 
         booking.Confirm();
     }
 
     public void Cancel(int bookingId)
     {
-        var booking = bookings.SingleOrDefault(existing => existing.Id == bookingId)
-            ?? throw new KeyNotFoundException("Bokningen finns inte i rummets schema.");
+        var booking = FindBooking(bookingId);
 
         booking.Cancel();
     }

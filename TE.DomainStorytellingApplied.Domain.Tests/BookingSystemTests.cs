@@ -9,7 +9,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenAvailableRoom_WhenReserving_ShouldKeepDetailsWithoutConfirming()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 11);
 
@@ -27,7 +27,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenReservedRoom_WhenReservingSameTime_ShouldReturnUnavailableWithoutBooking()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 12);
         var first = system.Reserve(booker, room, period).Booking.ShouldNotBeNull();
@@ -42,7 +42,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenAdjacentPeriod_WhenReserving_ShouldReserveBothWithDifferentIds()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         var room = new Room(1, "Meeting room");
 
         var first = system.Reserve(booker, room, CreatePeriod(10, 11)).Booking.ShouldNotBeNull();
@@ -56,7 +56,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenRejectedReservation_WhenReservingItsFreePart_ShouldSucceed()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         var room = new Room(1, "Meeting room");
         system.Reserve(booker, room, CreatePeriod(10, 12));
         var rejected = system.Reserve(booker, room, CreatePeriod(9, 11));
@@ -72,7 +72,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenDifferentRooms_WhenReservingSameTime_ShouldReserveBoth()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
 
         var first = system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
         var second = system.Reserve(booker, new Room(2, "Meeting room"), CreatePeriod(10, 12));
@@ -84,7 +84,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenSameRoomIdInDifferentObjects_WhenReservingSameTime_ShouldReject()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
 
         var second = system.Reserve(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
@@ -96,7 +96,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenCancelledReservation_WhenReservingAgain_ShouldReuseFreedTime()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
         var room = new Room(1, "Meeting room");
         var first = system.Reserve(booker, room, CreatePeriod(10, 12)).Booking.ShouldNotBeNull();
 
@@ -111,7 +111,7 @@ public class BookingSystemTests
     [Fact]
     public void GivenUnknownRoom_WhenCancelling_ShouldReject()
     {
-        var system = new BookingSystem();
+        var system = new BookingSystem(new StubPaymentGateway(false), new NotificationService(TextWriter.Null));
 
         Should.Throw<KeyNotFoundException>(() => system.Cancel(1, 1));
     }
