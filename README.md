@@ -129,8 +129,10 @@ This method expects a trusted payment result; no external callback endpoint is p
 Repeated identical results have no further effect or notification; contradictory
 results are rejected. The attempt ID must belong to the specified booking.
 
-Notification failure propagates but does not undo a successful payment or booking.
-Automatic notification retries, refunds, and persistence are not implemented. Cancellation of a confirmed booking still only releases its time;
+Notification failure is recorded separately and does not throw from `Pay` or
+`RecordPaymentResult`. `Pay` still returns the successful payment attempt.
+Automatic notification retries, refunds, and persistence are not implemented.
+Cancellation of a confirmed booking still only releases its time;
 it does not refund a payment. There is no direct confirmation operation; both the
 aggregate and the BookingSystem flow confirm only after payment approval.
 Free or manual bookings are not currently supported.
@@ -146,7 +148,7 @@ All three flows use the same `BookingSystem` instance and the original booking I
 | Declined, then cancelled | `Reserve`, `Pay`, `Cancel` | Cancelled; time is free | None |
 
 After `Pay` returns a failed attempt, the caller lets the user choose whether to
-call `Pay` again or `Cancel`. There is no automatic retry and no separate retry
+call `Pay` again or `Cancel`. There is no automatic payment retry and no separate payment retry
 method. The repository has no user interface yet.
 
 The payment result and confirmed booking state are updated in memory before
@@ -154,6 +156,42 @@ The payment result and confirmed booking state are updated in memory before
 send no further confirmation. A notification failure keeps the booking confirmed
 and the time occupied; do not retry the payment to retry message delivery.
 `PaymentTests` verifies these flows, including duplicate results from earlier attempts.
+
+## Retrying confirmation delivery
+
+Call `GetConfirmationDelivery(roomId, bookingId)` to read an immutable result with
+`Status` and `Error`. Status is `NotRequested` before payment approval, `Pending`
+during delivery, `Sent` on success, or `Failed` with the error message on failure.
+Call `RetryConfirmation(roomId, bookingId)` to retry a failed notification without
+calling the payment gateway again. It returns the delivery result; another delivery
+failure remains available for a later retry. Duplicate payment callbacks do not
+retry delivery automatically.
+
+```csharp
+var attempt = system.Pay(room.Id, booking.Id);
+var delivery = system.GetConfirmationDelivery(room.Id, booking.Id);
+// A failed notification does not mean the payment failed.
+if (delivery.Status == ConfirmationDeliveryStatus.Failed)
+{
+    // For example, after the delivery service has recovered:
+    delivery = system.RetryConfirmation(room.Id, booking.Id);
+}
+```
+
+Retries are serialized per confirmation. Once successfully sent, further retries
+are no-ops. Retrying before confirmation is requested is rejected. A confirmation
+not yet sent is suppressed (`Suppressed`) if the booking has been cancelled when
+delivery is attempted. Cancellation cannot recall a send already in progress.
+Delivery does not hold the room schedule lock.
+
+All delivery state is in memory and is lost on restart. `Sent` means the TextWriter
+returned successfully, not that a real recipient received email. A writer can
+partially write and then throw; retrying can therefore duplicate partial output.
+For real delivery, use a provider idempotency key and durable pending messages to
+handle ambiguous delivery and restarts. Neither is implemented in this example.
+`ConfirmationDeliveryTests` covers recovery, callback failures, concurrent retries,
+cancellation, and booking operations during a slow notification.
+
 
 # Reservation expiry and concurrency
 

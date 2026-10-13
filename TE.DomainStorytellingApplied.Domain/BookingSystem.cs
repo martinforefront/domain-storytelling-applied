@@ -5,6 +5,7 @@ namespace TE.DomainStorytellingApplied.Domain;
 public class BookingSystem
 {
     private readonly ConcurrentDictionary<int, RoomSchedule> schedules = new();
+    private readonly ConcurrentDictionary<(int RoomId, int BookingId), ConfirmationNotification> confirmations = new();
     private int nextBookingId;
     private readonly IPaymentGateway payments;
     private readonly NotificationService notifications;
@@ -62,10 +63,29 @@ public class BookingSystem
         if (newlyConfirmed)
         {
             var booking = schedule.FindBooking(bookingId);
-            notifications.Send(booking.Booker.Email,
-                $"Din bokning av {booking.Room.Name} är bekräftad: " +
-                $"{booking.Period.Start:yyyy-MM-dd HH:mm}–{booking.Period.End:yyyy-MM-dd HH:mm}.");
+            var confirmation = new ConfirmationNotification(booking);
+            confirmations[(roomId, bookingId)] = confirmation;
+            confirmation.TrySend(notifications);
         }
+    }
+
+    public ConfirmationDeliveryResult GetConfirmationDelivery(int roomId, int bookingId)
+    {
+        FindSchedule(roomId).FindBooking(bookingId);
+        return confirmations.TryGetValue((roomId, bookingId), out var confirmation)
+            ? confirmation.Result
+            : new ConfirmationDeliveryResult(ConfirmationDeliveryStatus.NotRequested);
+    }
+
+    public ConfirmationDeliveryResult RetryConfirmation(int roomId, int bookingId)
+    {
+        FindSchedule(roomId).FindBooking(bookingId);
+        if (!confirmations.TryGetValue((roomId, bookingId), out var confirmation))
+        {
+            throw new InvalidOperationException("Det finns ingen bokningsbekräftelse att skicka om.");
+        }
+
+        return confirmation.TrySend(notifications);
     }
 
     public void Cancel(int roomId, int bookingId) => FindSchedule(roomId).Cancel(bookingId);

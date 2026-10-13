@@ -193,8 +193,12 @@ public class PaymentTests
         var system = new BookingSystem(payments, new NotificationService(output));
         var booking = system.Reserve(booker, room, period).Booking.ShouldNotBeNull();
 
-        Should.Throw<InvalidOperationException>(() => system.Pay(room.Id, booking.Id));
+        var attempt = system.Pay(room.Id, booking.Id);
 
+        attempt.Status.ShouldBe(PaymentStatus.Succeeded);
+        var delivery = system.GetConfirmationDelivery(room.Id, booking.Id);
+        delivery.Status.ShouldBe(ConfirmationDeliveryStatus.Failed);
+        delivery.Error.ShouldBe("Delivery failed.");
         booking.Status.ShouldBe(BookingStatus.Confirmed);
         booking.PaymentAttempts.Single().Status.ShouldBe(PaymentStatus.Succeeded);
         system.Reserve(booker, room, period).Outcome.ShouldBe(ReservationOutcome.RoomUnavailable);
