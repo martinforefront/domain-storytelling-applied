@@ -83,15 +83,6 @@ public class RoomSchedule
         }
     }
 
-    public void Confirm(int bookingId)
-    {
-        lock (gate)
-        {
-            ExpireReservations();
-            FindBooking(bookingId).Confirm();
-        }
-    }
-
     public void Cancel(int bookingId)
     {
         lock (gate)

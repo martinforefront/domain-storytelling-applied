@@ -76,12 +76,14 @@ public class RoomScheduleTests
     }
 
     [Fact]
-    public void GivenReservedBooking_WhenConfirming_ShouldConfirmAndKeepTimeOccupied()
+    public void GivenReservedBooking_WhenPaymentSucceeds_ShouldConfirmAndKeepTimeOccupied()
     {
         var schedule = new RoomSchedule(new Room(1, "Meeting room"));
         var booking = schedule.Reserve(1, booker, Period(10, 12));
+        var attempt = schedule.StartPayment(booking.Id);
+        booking.IsConfirmed.ShouldBeFalse();
 
-        schedule.Confirm(booking.Id);
+        schedule.RecordPaymentResult(booking.Id, attempt.Id, true).ShouldBeTrue();
 
         booking.Status.ShouldBe(BookingStatus.Confirmed);
         booking.IsConfirmed.ShouldBeTrue();
@@ -90,39 +92,57 @@ public class RoomScheduleTests
     }
 
     [Fact]
-    public void GivenCancelledBooking_WhenConfirming_ShouldRejectAndKeepTimeFree()
+    public void GivenCancelledBooking_WhenStartingPayment_ShouldRejectAndKeepTimeFree()
     {
         var schedule = new RoomSchedule(new Room(1, "Meeting room"));
         var booking = schedule.Reserve(1, booker, Period(10, 12));
         schedule.Cancel(booking.Id);
 
-        Should.Throw<InvalidOperationException>(() => schedule.Confirm(booking.Id));
+        Should.Throw<InvalidOperationException>(() => schedule.StartPayment(booking.Id));
 
         booking.Status.ShouldBe(BookingStatus.Cancelled);
+        booking.PaymentAttempts.ShouldBeEmpty();
         schedule.Reserve(2, booker, Period(10, 12)).Status.ShouldBe(BookingStatus.Reserved);
     }
 
     [Fact]
-    public void GivenUnknownBooking_WhenConfirming_ShouldRejectAndLeaveReservationUnchanged()
+    public void GivenUnknownBooking_WhenRecordingPayment_ShouldRejectAndLeaveReservationUnchanged()
     {
         var schedule = new RoomSchedule(new Room(1, "Meeting room"));
         var booking = schedule.Reserve(1, booker, Period(10, 12));
+        var attempt = schedule.StartPayment(booking.Id);
 
-        Should.Throw<KeyNotFoundException>(() => schedule.Confirm(2));
+        Should.Throw<KeyNotFoundException>(() => schedule.RecordPaymentResult(2, attempt.Id, true));
 
         booking.Status.ShouldBe(BookingStatus.Reserved);
+        attempt.Status.ShouldBe(PaymentStatus.Pending);
     }
 
     [Fact]
-    public void GivenConfirmedBooking_WhenConfirmingAgain_ShouldRemainConfirmed()
+    public void GivenConfirmedBooking_WhenRepeatingApprovedResult_ShouldRemainConfirmed()
     {
         var schedule = new RoomSchedule(new Room(1, "Meeting room"));
         var booking = schedule.Reserve(1, booker, Period(10, 12));
-        schedule.Confirm(booking.Id);
+        var attempt = schedule.StartPayment(booking.Id);
+        schedule.RecordPaymentResult(booking.Id, attempt.Id, true).ShouldBeTrue();
 
-        schedule.Confirm(booking.Id);
+        schedule.RecordPaymentResult(booking.Id, attempt.Id, true).ShouldBeFalse();
 
         booking.Status.ShouldBe(BookingStatus.Confirmed);
+    }
+
+    [Fact]
+    public void GivenReservationWithoutPaymentAttempt_WhenRecordingApproval_ShouldReject()
+    {
+        var schedule = new RoomSchedule(new Room(1, "Meeting room"));
+        var booking = schedule.Reserve(1, booker, Period(10, 12));
+
+        Should.Throw<KeyNotFoundException>(() =>
+            schedule.RecordPaymentResult(booking.Id, Guid.NewGuid(), true));
+
+        booking.Status.ShouldBe(BookingStatus.Reserved);
+        booking.IsConfirmed.ShouldBeFalse();
+        booking.PaymentAttempts.ShouldBeEmpty();
     }
 
     private static TimePeriod Period(int startHour, int endHour) => new(

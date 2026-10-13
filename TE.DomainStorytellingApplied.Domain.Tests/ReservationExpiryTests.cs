@@ -42,13 +42,13 @@ public class ReservationExpiryTests
     }
 
     [Fact]
-    public void GivenExpiredReservation_WhenConfirmingDirectly_ShouldReject()
+    public void GivenExpiredReservation_WhenStartingPaymentDirectly_ShouldReject()
     {
         var schedule = new RoomSchedule(room, clock);
         var booking = schedule.Reserve(1, booker, period);
         clock.Advance(TimeSpan.FromMinutes(10));
 
-        Should.Throw<InvalidOperationException>(() => schedule.Confirm(booking.Id));
+        Should.Throw<InvalidOperationException>(() => schedule.StartPayment(booking.Id));
 
         booking.Status.ShouldBe(BookingStatus.Expired);
     }

@@ -31,11 +31,13 @@ The solution contains a class library and tests only; there is no application.
 
 - `RoomSchedule` is the aggregate root for one room, identified by the room ID.
   Its private list owns the room's bookings. `Reserve` checks availability,
-  creates a reserved booking, and stores it. `Confirm` confirms an existing
-  reservation. `Cancel` releases its time. Cancelled bookings cannot be confirmed.
-- `Booking` is an entity inside the schedule. Its constructor and state-changing
-  methods are internal, so callers in other projects use the aggregate root.
+  creates a reserved booking, and stores it. `RecordPaymentResult` confirms a
+  reservation only after an approved payment attempt. `Cancel` releases its time.
+  Cancelled bookings cannot be confirmed.
+- `Booking` is an entity inside the schedule. Its constructor and operations used
+  by the schedule are internal, so callers in other projects use the aggregate root.
   Internal access still permits other classes in the same assembly to call them.
+  Confirmation itself is private and only called when recording an approved payment.
 - `Room` and `Booker` are independent entities referenced by bookings.
 - `TimePeriod` is a value object that requires the end to be after the start.
   Its `Overlaps` method compares periods; touching endpoints do not overlap.
@@ -51,8 +53,9 @@ Overlapping reserved or confirmed bookings are rejected with `RoomUnavailableExc
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
 including after cancellation. Cancellation of an unknown booking is rejected.
 `Booking.Status` distinguishes `Reserved`, `Confirmed`, `Cancelled`, and `Expired`.
-New bookings start as `Reserved`. Confirmation is a separate operation through
-`RoomSchedule.Confirm(bookingId)`; repeating confirmation is allowed. `IsConfirmed` is derived from the status and is false after cancellation.
+New bookings start as `Reserved`. Only an approved result for an existing payment
+attempt can confirm a booking. Repeating that result has no further effect.
+`IsConfirmed` is derived from the status and is false after cancellation.
 
 # Reservation coordination
 
@@ -128,8 +131,9 @@ results are rejected. The attempt ID must belong to the specified booking.
 
 Notification failure propagates but does not undo a successful payment or booking.
 Automatic notification retries, refunds, and persistence are not implemented. Cancellation of a confirmed booking still only releases its time;
-it does not refund a payment. `RoomSchedule.Confirm` remains available from the
-previous example, while the BookingSystem flow confirms only after payment approval.
+it does not refund a payment. There is no direct confirmation operation; both the
+aggregate and the BookingSystem flow confirm only after payment approval.
+Free or manual bookings are not currently supported.
 
 # Retry, cancel, and confirmation
 
@@ -167,7 +171,7 @@ clock, allowing tests to advance time without waiting.
 - Failed attempts do not extend the original deadline. Confirmed and cancelled
   bookings keep their status. Duplicate results do not revive expired/cancelled bookings.
 
-Expiry is evaluated during reservation, payment start, confirmation, cancellation,
+Expiry is evaluated during reservation, payment start, cancellation,
 and payment-result processing. `ExpireReservations()` can also refresh stored statuses
 explicitly. There is no background timer: merely reading `Booking.Status` does not
 advance it. A new reservation still frees expired holds before checking availability.

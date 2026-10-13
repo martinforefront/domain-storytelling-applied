@@ -32,7 +32,7 @@ public class Booking
     public BookingStatus Status => status;
     public bool IsConfirmed => Status == BookingStatus.Confirmed;
 
-    internal void Confirm()
+    private void Confirm()
     {
         if (Status is BookingStatus.Cancelled or BookingStatus.Expired)
         {
