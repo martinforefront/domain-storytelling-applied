@@ -5,8 +5,10 @@ public class BookingSystem(NotificationService notifications)
     private readonly Dictionary<int, RoomSchedule> schedules = [];
     private int nextBookingId = 1;
 
-    public Booking Book(Booker booker, Room room, TimePeriod period)
+    public Booking Book(ContactDetails contactDetails, Room room, TimePeriod period)
     {
+        ArgumentNullException.ThrowIfNull(contactDetails);
+
         if (!schedules.TryGetValue(room.Id, out var schedule))
         {
             schedule = new RoomSchedule(room);
@@ -17,19 +19,19 @@ public class BookingSystem(NotificationService notifications)
         Booking booking;
         try
         {
-            booking = schedule.Reserve(bookingId, booker, period);
+            booking = schedule.Reserve(bookingId, contactDetails, period);
         }
         catch (RoomUnavailableException)
         {
-            notifications.Send(booker.Email,
+            notifications.Send(contactDetails.Email,
                 "Bokningen kunde inte genomföras. Rummet är redan bokat.");
 
-            return new Booking(bookingId, schedule.Room, period, booker);
+            return new Booking(bookingId, schedule.Room, period, contactDetails);
         }
 
         schedule.Confirm(booking.Id);
 
-        notifications.Send(booking.Booker.Email,
+        notifications.Send(booking.ContactDetails.Email,
             $"Din bokning av {booking.Room.Name} är bekräftad: " +
             $"{booking.Period.Start:yyyy-MM-dd HH:mm}–{booking.Period.End:yyyy-MM-dd HH:mm}.");
         return booking;

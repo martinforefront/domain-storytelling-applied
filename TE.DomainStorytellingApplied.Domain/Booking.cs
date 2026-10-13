@@ -9,18 +9,20 @@ public enum BookingStatus
 
 public class Booking
 {
-    internal Booking(int id, Room room, TimePeriod period, Booker booker)
+    internal Booking(int id, Room room, TimePeriod period, ContactDetails contactDetails)
     {
+        ArgumentNullException.ThrowIfNull(contactDetails);
+
         Id = id;
         Room = room;
         Period = period;
-        Booker = booker;
+        ContactDetails = contactDetails;
     }
 
     public int Id { get; }
     public Room Room { get; }
     public TimePeriod Period { get; }
-    public Booker Booker { get; }
+    public ContactDetails ContactDetails { get; }
     public BookingStatus Status { get; private set; } = BookingStatus.Reserved;
     public bool IsConfirmed => Status == BookingStatus.Confirmed;
 

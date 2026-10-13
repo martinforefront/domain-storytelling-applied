@@ -16,15 +16,15 @@ public class BookingTests
             new DateTime(2026, 11, 1, 11, 0, 0));
 
 
-        var booker = new Booker(1, "Anna Andersson", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna Andersson", "anna@example.com");
 
 
         var schedule = new RoomSchedule(room);
-        var booking = schedule.Reserve(1, booker, period);
+        var booking = schedule.Reserve(1, contactDetails, period);
 
         booking.Room.ShouldBe(room);
         booking.Period.ShouldBe(period);
-        booking.Booker.ShouldBeSameAs(booker);
+        booking.ContactDetails.ShouldBe(contactDetails);
         booking.Status.ShouldBe(BookingStatus.Reserved);
         booking.IsConfirmed.ShouldBeFalse();
     }

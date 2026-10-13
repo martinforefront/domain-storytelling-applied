@@ -8,7 +8,7 @@ public class RoomSchedule(Room room)
     public int Id => Room.Id;
     public Room Room { get; } = room;
 
-    public Booking Reserve(int bookingId, Booker booker, TimePeriod period)
+    public Booking Reserve(int bookingId, ContactDetails contactDetails, TimePeriod period)
     {
         if (bookings.Any(existing => existing.Id == bookingId))
         {
@@ -17,15 +17,14 @@ public class RoomSchedule(Room room)
 
         bool overlaps = bookings.Any(existing =>
             (existing.Status is BookingStatus.Reserved or BookingStatus.Confirmed) &&
-            period.Start < existing.Period.End &&
-            period.End > existing.Period.Start);
+            period.Overlaps(existing.Period));
 
         if (overlaps)
         {
             throw new RoomUnavailableException();
         }
 
-        var booking = new Booking(bookingId, Room, period, booker);
+        var booking = new Booking(bookingId, Room, period, contactDetails);
 
         bookings.Add(booking);
         return booking;

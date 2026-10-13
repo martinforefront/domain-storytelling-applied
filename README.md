@@ -36,8 +36,14 @@ The solution contains a class library and tests only; there is no application.
 - `Booking` is an entity inside the schedule. Its constructor and state-changing
   methods are internal, so callers in other projects use the aggregate root.
   Internal access still permits other classes in the same assembly to call them.
-- `Room` and `Booker` are independent entities referenced by bookings.
+- `Room` is an independent entity referenced by bookings.
+- `ContactDetails` replaces `Booker`: an immutable value object containing the
+  name and email supplied for the booking, with no customer identity. Empty names
+  and invalid email syntax are rejected. Surrounding whitespace is trimmed;
+  equality compares the stored name and email exactly. Email validation does not
+  verify that the mailbox exists.
 - `TimePeriod` is a value object that requires the end to be after the start.
+  Its `Overlaps` method compares periods; touching endpoints do not overlap.
 
 Overlapping reserved or confirmed bookings are rejected with `RoomUnavailableException`.
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
@@ -57,18 +63,18 @@ aggregate root.
 ```csharp
 using var output = new StringWriter();
 var system = new BookingSystem(new NotificationService(output));
-var booker = new Booker(1, "Anna", "anna@example.com");
+var contactDetails = new ContactDetails("Anna", "anna@example.com");
 var room = new Room(1, "Meeting room");
 var period = new TimePeriod(
     new DateTime(2026, 11, 1, 10, 0, 0),
     new DateTime(2026, 11, 1, 12, 0, 0));
-var booking = system.Book(booker, room, period);
+var booking = system.Book(contactDetails, room, period);
 system.Cancel(room.Id, booking.Id);
 ```
 
 `Book` obtains the room's schedule, allocates an ID, and calls `Reserve` followed
 by `Confirm`, preserving the immediate confirmation flow for now.
-It writes confirmation or rejection to the booker's email address through
+It writes confirmation or rejection to the email address in the booking contact details through
 `NotificationService`. This writes to a supplied `TextWriter`; no real email is sent.
 A rejected attempt is returned as an unconfirmed `Booking` and is not stored in
 any schedule. Notification failure does not undo a successful reservation.

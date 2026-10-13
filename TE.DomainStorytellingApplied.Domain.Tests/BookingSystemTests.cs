@@ -10,13 +10,13 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 11);
 
-        var booking = system.Book(booker, room, period);
+        var booking = system.Book(contactDetails, room, period);
 
-        booking.Booker.ShouldBeSameAs(booker);
+        booking.ContactDetails.ShouldBe(contactDetails);
         booking.Room.ShouldBeSameAs(room);
         booking.Period.ShouldBe(period);
         booking.IsConfirmed.ShouldBeTrue();
@@ -27,16 +27,16 @@ public class BookingSystemTests
 
     [Fact]
 
-    public void GivenOccupiedRoom_WhenBooking_ShouldRejectSecondBookingAndNotifyItsBooker()
+    public void GivenOccupiedRoom_WhenBooking_ShouldRejectSecondBookingAndNotifyItsContactEmail()
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 12);
-        var first = system.Book(new Booker(1, "Anna", "anna@example.com"), room, period);
+        var first = system.Book(new ContactDetails("Anna", "anna@example.com"), room, period);
         output.GetStringBuilder().Clear();
 
-        var second = system.Book(new Booker(2, "Bertil", "bertil@example.com"), room, period);
+        var second = system.Book(new ContactDetails("Bertil", "bertil@example.com"), room, period);
 
         first.IsConfirmed.ShouldBeTrue();
         second.IsConfirmed.ShouldBeFalse();
@@ -52,11 +52,11 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
         var room = new Room(1, "Meeting room");
 
-        var first = system.Book(booker, room, CreatePeriod(10, 11));
-        var second = system.Book(booker, room, CreatePeriod(11, 12));
+        var first = system.Book(contactDetails, room, CreatePeriod(10, 11));
+        var second = system.Book(contactDetails, room, CreatePeriod(11, 12));
 
         first.IsConfirmed.ShouldBeTrue();
         second.IsConfirmed.ShouldBeTrue();
@@ -69,12 +69,12 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
         var room = new Room(1, "Meeting room");
-        system.Book(booker, room, CreatePeriod(10, 12));
-        var rejected = system.Book(booker, room, CreatePeriod(9, 11));
+        system.Book(contactDetails, room, CreatePeriod(10, 12));
+        var rejected = system.Book(contactDetails, room, CreatePeriod(9, 11));
 
-        var booking = system.Book(booker, room, CreatePeriod(9, 10));
+        var booking = system.Book(contactDetails, room, CreatePeriod(9, 10));
 
         rejected.IsConfirmed.ShouldBeFalse();
         booking.IsConfirmed.ShouldBeTrue();
@@ -87,18 +87,18 @@ public class BookingSystemTests
     {
         using var output = new FailingWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
         var room = new Room(1, "Meeting room");
         var period = CreatePeriod(10, 12);
 
         var exception = Should.Throw<InvalidOperationException>(
-            () => system.Book(booker, room, period));
+            () => system.Book(contactDetails, room, period));
 
         exception.Message.ShouldBe("Delivery failed.");
         output.Attempts.ShouldBe(1);
         output.FailDelivery = false;
 
-        var second = system.Book(booker, room, period);
+        var second = system.Book(contactDetails, room, period);
 
         second.IsConfirmed.ShouldBeFalse();
         output.ToString().ShouldContain("Rummet är redan bokat.");
@@ -110,10 +110,10 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
 
-        var first = system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
-        var second = system.Book(booker, new Room(2, "Meeting room"), CreatePeriod(10, 12));
+        var first = system.Book(contactDetails, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+        var second = system.Book(contactDetails, new Room(2, "Meeting room"), CreatePeriod(10, 12));
 
         first.IsConfirmed.ShouldBeTrue();
         second.IsConfirmed.ShouldBeTrue();
@@ -125,10 +125,10 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
-        system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
+        system.Book(contactDetails, new Room(1, "Meeting room"), CreatePeriod(10, 12));
 
-        var second = system.Book(booker, new Room(1, "Meeting room"), CreatePeriod(10, 12));
+        var second = system.Book(contactDetails, new Room(1, "Meeting room"), CreatePeriod(10, 12));
 
         second.IsConfirmed.ShouldBeFalse();
     }
@@ -139,12 +139,12 @@ public class BookingSystemTests
     {
         using var output = new StringWriter();
         var system = new BookingSystem(new NotificationService(output));
-        var booker = new Booker(1, "Anna", "anna@example.com");
+        var contactDetails = new ContactDetails("Anna", "anna@example.com");
         var room = new Room(1, "Meeting room");
-        var first = system.Book(booker, room, CreatePeriod(10, 12));
+        var first = system.Book(contactDetails, room, CreatePeriod(10, 12));
 
         system.Cancel(room.Id, first.Id);
-        var second = system.Book(booker, room, CreatePeriod(10, 12));
+        var second = system.Book(contactDetails, room, CreatePeriod(10, 12));
 
         first.IsConfirmed.ShouldBeFalse();
         second.IsConfirmed.ShouldBeTrue();
