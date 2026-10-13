@@ -41,7 +41,11 @@ The solution contains a class library and tests only; there is no application.
 Overlapping active bookings are rejected with `RoomUnavailableException`.
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
 including after cancellation. Cancellation of an unknown booking is rejected.
-`IsConfirmed` is false for cancelled bookings; there is no separate cancelled status yet.
+`Booking.Status` distinguishes `Reserved`, `Confirmed`, and `Cancelled`.
+New bookings start as `Reserved`, but `RoomSchedule.Reserve` still confirms them
+immediately. `IsConfirmed` is derived from the status and is false after cancellation.
+The existing rejected-attempt flow still returns an unstored booking in the initial
+`Reserved` state; it does not reserve any time in the schedule.
 
 # Booking coordination and notifications
 

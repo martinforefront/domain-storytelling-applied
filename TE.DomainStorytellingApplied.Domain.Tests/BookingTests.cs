@@ -25,6 +25,7 @@ public class BookingTests
         booking.Room.ShouldBe(room);
         booking.Period.ShouldBe(period);
         booking.Booker.ShouldBeSameAs(booker);
+        booking.Status.ShouldBe(BookingStatus.Confirmed);
         booking.IsConfirmed.ShouldBeTrue();
     }
 }

@@ -47,6 +47,7 @@ public class RoomScheduleTests
 
         var second = schedule.Reserve(2, booker, Period(10, 12));
 
+        first.Status.ShouldBe(BookingStatus.Cancelled);
         first.IsConfirmed.ShouldBeFalse();
         second.IsConfirmed.ShouldBeTrue();
         Should.Throw<RoomUnavailableException>(
