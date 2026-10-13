@@ -1,19 +1,33 @@
+using System.Collections.Concurrent;
+
 namespace TE.DomainStorytellingApplied.Domain;
 
-public class BookingSystem(IPaymentGateway payments, NotificationService notifications)
+public class BookingSystem
 {
-    private readonly Dictionary<int, RoomSchedule> schedules = [];
-    private int nextBookingId = 1;
+    private readonly ConcurrentDictionary<int, RoomSchedule> schedules = new();
+    private int nextBookingId;
+    private readonly IPaymentGateway payments;
+    private readonly NotificationService notifications;
+    private readonly TimeProvider clock;
+    private readonly TimeSpan reservationDuration;
+
+    public BookingSystem(IPaymentGateway payments, NotificationService notifications,
+        TimeProvider? clock = null, TimeSpan? reservationDuration = null)
+    {
+        this.payments = payments;
+        this.notifications = notifications;
+        this.clock = clock ?? TimeProvider.System;
+        this.reservationDuration = reservationDuration ?? TimeSpan.FromMinutes(10);
+        if (this.reservationDuration <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(reservationDuration));
+        }
+    }
 
     public ReservationResult Reserve(Booker booker, Room room, TimePeriod period)
     {
-        if (!schedules.TryGetValue(room.Id, out var schedule))
-        {
-            schedule = new RoomSchedule(room);
-            schedules.Add(room.Id, schedule);
-        }
-
-        int bookingId = nextBookingId++;
+        var schedule = schedules.GetOrAdd(room.Id, _ => new RoomSchedule(room, clock, reservationDuration));
+        int bookingId = Interlocked.Increment(ref nextBookingId);
         try
         {
             var booking = schedule.Reserve(bookingId, booker, period);
@@ -48,6 +62,14 @@ public class BookingSystem(IPaymentGateway payments, NotificationService notific
     }
 
     public void Cancel(int roomId, int bookingId) => FindSchedule(roomId).Cancel(bookingId);
+
+    public void ExpireReservations()
+    {
+        foreach (var schedule in schedules.Values)
+        {
+            schedule.ExpireReservations();
+        }
+    }
 
     private RoomSchedule FindSchedule(int roomId) =>
         schedules.TryGetValue(roomId, out var schedule)

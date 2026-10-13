@@ -15,7 +15,8 @@ public class PaymentAttempt
     }
 
     public Guid Id { get; }
-    public PaymentStatus Status { get; private set; } = PaymentStatus.Pending;
+    private volatile PaymentStatus status = PaymentStatus.Pending;
+    public PaymentStatus Status => status;
 
     internal bool RecordResult(bool succeeded)
     {
@@ -30,7 +31,7 @@ public class PaymentAttempt
             throw new InvalidOperationException("Betalningsförsöket har redan ett annat resultat.");
         }
 
-        Status = result;
+        status = result;
         return true;
     }
 }

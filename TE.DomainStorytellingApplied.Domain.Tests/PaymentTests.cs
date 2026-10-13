@@ -60,22 +60,38 @@ public class PaymentTests
         booking.PaymentAttempts.Count.ShouldBe(2);
         booking.Status.ShouldBe(BookingStatus.Confirmed);
         payments.Attempts.Count.ShouldBe(2);
+        var confirmation =
+            $"Till: anna@example.com{Environment.NewLine}" +
+            $"Din bokning av Meeting room är bekräftad: 2026-11-01 10:00–2026-11-01 12:00.{Environment.NewLine}";
+        output.ToString().ShouldBe(confirmation);
+
+        // Delayed, duplicate responses must not undo success or send another confirmation.
+        system.RecordPaymentResult(room.Id, booking.Id, failed.Id, false);
+        system.RecordPaymentResult(room.Id, booking.Id, succeeded.Id, true);
+
+        booking.Status.ShouldBe(BookingStatus.Confirmed);
+        output.ToString().ShouldBe(confirmation);
     }
 
     [Fact]
     public void GivenDeclinedPayment_WhenCancelling_ShouldFreeTimeAndRejectFurtherPayments()
     {
         var payments = new StubPaymentGateway(false);
-        var system = new BookingSystem(payments, new NotificationService(TextWriter.Null));
+        using var output = new StringWriter();
+        var system = new BookingSystem(payments, new NotificationService(output));
         var booking = system.Reserve(booker, room, period).Booking.ShouldNotBeNull();
-        system.Pay(room.Id, booking.Id);
+        var failed = system.Pay(room.Id, booking.Id);
 
         system.Cancel(room.Id, booking.Id);
+        system.RecordPaymentResult(room.Id, booking.Id, failed.Id, false);
 
         booking.Status.ShouldBe(BookingStatus.Cancelled);
-        system.Reserve(booker, room, period).Outcome.ShouldBe(ReservationOutcome.Reserved);
+        var replacement = system.Reserve(booker, room, period).Booking.ShouldNotBeNull();
+        replacement.Id.ShouldNotBe(booking.Id);
+        replacement.Status.ShouldBe(BookingStatus.Reserved);
         Should.Throw<InvalidOperationException>(() => system.Pay(room.Id, booking.Id));
         payments.Attempts.Count.ShouldBe(1);
+        output.ToString().ShouldBeEmpty();
     }
 
     [Fact]
@@ -181,6 +197,7 @@ public class PaymentTests
 
         booking.Status.ShouldBe(BookingStatus.Confirmed);
         booking.PaymentAttempts.Single().Status.ShouldBe(PaymentStatus.Succeeded);
+        system.Reserve(booker, room, period).Outcome.ShouldBe(ReservationOutcome.RoomUnavailable);
         Should.Throw<InvalidOperationException>(() => system.Pay(room.Id, booking.Id));
         payments.Attempts.Count.ShouldBe(1);
     }

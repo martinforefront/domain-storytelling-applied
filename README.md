@@ -43,7 +43,7 @@ The solution contains a class library and tests only; there is no application.
 Overlapping reserved or confirmed bookings are rejected with `RoomUnavailableException`.
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
 including after cancellation. Cancellation of an unknown booking is rejected.
-`Booking.Status` distinguishes `Reserved`, `Confirmed`, and `Cancelled`.
+`Booking.Status` distinguishes `Reserved`, `Confirmed`, `Cancelled`, and `Expired`.
 New bookings start as `Reserved`. Confirmation is a separate operation through
 `RoomSchedule.Confirm(bookingId)`; repeating confirmation is allowed. `IsConfirmed` is derived from the status and is false after cancellation.
 
@@ -87,12 +87,12 @@ payment attempt through the aggregate and passes its ID to `IPaymentGateway`.
 An approved payment confirms the booking and sends a confirmation through
 `NotificationService` (a TextWriter, not real email). A declined payment leaves the
 booking reserved, so the caller can pay again or cancel to release the time.
-Reservations have no automatic expiry yet.
+Reservations allow 10 minutes to start payment; see the expiry rules below.
 
 Use the same system instance for related booking attempts. The schedules and IDs
-are in memory only. Separate instances do not share reservations. This example
-supports sequential calls, not concurrent booking attempts. A persistent,
-multi-user version needs atomic saving and concurrency control across instances.
+are in memory only. Separate instances do not share reservations. Concurrent calls
+within one shared system instance are supported. A persistent, multi-process version
+still needs database transactions and concurrency control across instances.
 
 `RoomScheduleTests` covers overlap, adjacent times, duplicate IDs, and cancellation.
 `BookingSystemTests` covers reservation results, room identity, cancellation,
@@ -120,7 +120,64 @@ Repeated identical results have no further effect or notification; contradictory
 results are rejected. The attempt ID must belong to the specified booking.
 
 Notification failure propagates but does not undo a successful payment or booking.
-Automatic notification retries, refunds, persistence, and concurrent requests are
-not implemented. Cancellation of a confirmed booking still only releases its time;
+Automatic notification retries, refunds, and persistence are not implemented. Cancellation of a confirmed booking still only releases its time;
 it does not refund a payment. `RoomSchedule.Confirm` remains available from the
 previous example, while the BookingSystem flow confirms only after payment approval.
+
+# Retry, cancel, and confirmation
+
+All three flows use the same `BookingSystem` instance and the original booking ID:
+
+| Flow | Calls | Final state | Confirmation |
+| --- | --- | --- | --- |
+| Approved immediately | `Reserve`, `Pay` | Confirmed | Once |
+| Declined, then approved | `Reserve`, `Pay`, `Pay` again | Confirmed, with two attempts | Once, after approval |
+| Declined, then cancelled | `Reserve`, `Pay`, `Cancel` | Cancelled; time is free | None |
+
+After `Pay` returns a failed attempt, the caller lets the user choose whether to
+call `Pay` again or `Cancel`. There is no automatic retry and no separate retry
+method. The repository has no user interface yet.
+
+The payment result and confirmed booking state are updated in memory before
+`NotificationService.Send` runs. No database is present. Duplicate payment results
+send no further confirmation. A notification failure keeps the booking confirmed
+and the time occupied; do not retry the payment to retry message delivery.
+`PaymentTests` verifies these flows, including duplicate results from earlier attempts.
+
+# Reservation expiry and concurrency
+
+Each booking has an `ExpiresAt` UTC timestamp. The default reservation duration is
+10 minutes, configurable through `reservationDuration` on `BookingSystem` or
+`RoomSchedule`. Non-positive durations are rejected. `TimeProvider` supplies the
+clock, allowing tests to advance time without waiting.
+
+- At the deadline (`now >= ExpiresAt`), a reserved booking without a pending payment
+  becomes `Expired` and stops blocking its time. Payment and confirmation are rejected.
+- Starting payment before the deadline holds the time until a definitive result is
+  known, even past the deadline. Cancellation and additional attempts remain blocked.
+- A late approval confirms that held booking. A late decline expires it and frees
+  the time. A decline before the deadline permits retries within the original window.
+- Failed attempts do not extend the original deadline. Confirmed and cancelled
+  bookings keep their status. Duplicate results do not revive expired/cancelled bookings.
+
+Expiry is evaluated during reservation, payment start, confirmation, cancellation,
+and payment-result processing. `ExpireReservations()` can also refresh stored statuses
+explicitly. There is no background timer: merely reading `Booking.Status` does not
+advance it. A new reservation still frees expired holds before checking availability.
+An unknown payment outcome can hold a room indefinitely until reconciled with the
+provider; automatic recovery from a lost payment response is not implemented.
+
+A lock per `RoomSchedule` keeps the availability check and reservation creation
+atomic, and serializes payment state changes, cancellation, and expiry. Shared
+schedule lookup uses `ConcurrentDictionary`, and booking IDs use `Interlocked`.
+Payment history is exposed as read-only snapshots of the attempt collection.
+Gateway calls and notification delivery occur outside the schedule lock, allowing
+other reservations to proceed while a payment is slow. Notification writes are
+serialized so messages cannot interleave. Gateway implementations must support
+concurrent calls for different bookings.
+
+Use one shared `BookingSystem` per in-memory application. Separate instances or
+processes have separate state; this is not a database-level double-booking guarantee.
+`ReservationExpiryTests` covers deadlines and late payment outcomes;
+`ConcurrencyTests` covers competing reservations, unique IDs, duplicate payment
+responses, and a blocked gateway with concurrent operations.

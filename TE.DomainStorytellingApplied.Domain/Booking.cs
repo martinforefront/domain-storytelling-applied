@@ -4,39 +4,44 @@ public enum BookingStatus
 {
     Reserved,
     Confirmed,
-    Cancelled
+    Cancelled,
+    Expired
 }
 
 public class Booking
 {
-    private readonly List<PaymentAttempt> paymentAttempts = [];
+    private volatile PaymentAttempt[] paymentAttempts = [];
 
-    public IReadOnlyList<PaymentAttempt> PaymentAttempts => paymentAttempts.AsReadOnly();
+    public IReadOnlyList<PaymentAttempt> PaymentAttempts => Array.AsReadOnly(paymentAttempts);
 
-    internal Booking(int id, Room room, TimePeriod period, Booker booker)
+    internal Booking(int id, Room room, TimePeriod period, Booker booker, DateTimeOffset expiresAt)
     {
         Id = id;
         Room = room;
         Period = period;
         Booker = booker;
+        ExpiresAt = expiresAt;
     }
 
+    public DateTimeOffset ExpiresAt { get; }
     public int Id { get; }
     public Room Room { get; }
     public TimePeriod Period { get; }
     public Booker Booker { get; }
-    public BookingStatus Status { get; private set; } = BookingStatus.Reserved;
+    private volatile BookingStatus status = BookingStatus.Reserved;
+    public BookingStatus Status => status;
     public bool IsConfirmed => Status == BookingStatus.Confirmed;
 
     internal void Confirm()
     {
-        if (Status == BookingStatus.Cancelled)
+        if (Status is BookingStatus.Cancelled or BookingStatus.Expired)
         {
-            throw new InvalidOperationException("En avbruten bokning kan inte bekräftas.");
+            throw new InvalidOperationException("En avbruten eller utgången bokning kan inte bekräftas.");
         }
 
-        Status = BookingStatus.Confirmed;
+        status = BookingStatus.Confirmed;
     }
+
     internal PaymentAttempt StartPayment()
     {
         if (Status != BookingStatus.Reserved)
@@ -50,7 +55,7 @@ public class Booking
         }
 
         var attempt = new PaymentAttempt();
-        paymentAttempts.Add(attempt);
+        paymentAttempts = [..paymentAttempts, attempt];
         return attempt;
     }
 
@@ -69,6 +74,15 @@ public class Booking
         return false;
     }
 
+    internal void Expire(DateTimeOffset now)
+    {
+        if (Status == BookingStatus.Reserved && now >= ExpiresAt &&
+            !paymentAttempts.Any(attempt => attempt.Status == PaymentStatus.Pending))
+        {
+            status = BookingStatus.Expired;
+        }
+    }
+
     internal void Cancel()
     {
         if (paymentAttempts.Any(attempt => attempt.Status == PaymentStatus.Pending))
@@ -76,6 +90,9 @@ public class Booking
             throw new InvalidOperationException("Invänta betalningsresultatet innan bokningen avbryts.");
         }
 
-        Status = BookingStatus.Cancelled;
+        if (Status != BookingStatus.Expired)
+        {
+            status = BookingStatus.Cancelled;
+        }
     }
 }
