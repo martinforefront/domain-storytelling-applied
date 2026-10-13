@@ -38,6 +38,7 @@ The solution contains a class library and tests only; there is no application.
   Internal access still permits other classes in the same assembly to call them.
 - `Room` and `Booker` are independent entities referenced by bookings.
 - `TimePeriod` is a value object that requires the end to be after the start.
+  Its `Overlaps` method compares periods; touching endpoints do not overlap.
 
 Overlapping reserved or confirmed bookings are rejected with `RoomUnavailableException`.
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,

@@ -17,8 +17,7 @@ public class RoomSchedule(Room room)
 
         bool overlaps = bookings.Any(existing =>
             (existing.Status is BookingStatus.Reserved or BookingStatus.Confirmed) &&
-            period.Start < existing.Period.End &&
-            period.End > existing.Period.Start);
+            period.Overlaps(existing.Period));
 
         if (overlaps)
         {
