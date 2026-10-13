@@ -24,6 +24,14 @@ public class Booking
     public BookingStatus Status { get; private set; } = BookingStatus.Reserved;
     public bool IsConfirmed => Status == BookingStatus.Confirmed;
 
-    internal void Confirm() => Status = BookingStatus.Confirmed;
+    internal void Confirm()
+    {
+        if (Status == BookingStatus.Cancelled)
+        {
+            throw new InvalidOperationException("En avbruten bokning kan inte bekräftas.");
+        }
+
+        Status = BookingStatus.Confirmed;
+    }
     internal void Cancel() => Status = BookingStatus.Cancelled;
 }

@@ -27,6 +27,8 @@ public class BookingSystem(NotificationService notifications)
             return new Booking(bookingId, schedule.Room, period, booker);
         }
 
+        schedule.Confirm(booking.Id);
+
         notifications.Send(booking.Booker.Email,
             $"Din bokning av {booking.Room.Name} är bekräftad: " +
             $"{booking.Period.Start:yyyy-MM-dd HH:mm}–{booking.Period.End:yyyy-MM-dd HH:mm}.");

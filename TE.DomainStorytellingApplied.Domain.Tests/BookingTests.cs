@@ -5,7 +5,7 @@ namespace TE.DomainStorytellingApplied.Domain.Tests;
 public class BookingTests
 {
     [Fact]
-    public void GivenAvailableSchedule_WhenReserving_ShouldKeepBookingDetailsAndConfirm()
+    public void GivenAvailableSchedule_WhenReserving_ShouldKeepBookingDetailsAndReserve()
     {
 
         var room = new Room(1, "Meeting room");
@@ -25,7 +25,7 @@ public class BookingTests
         booking.Room.ShouldBe(room);
         booking.Period.ShouldBe(period);
         booking.Booker.ShouldBeSameAs(booker);
-        booking.Status.ShouldBe(BookingStatus.Confirmed);
-        booking.IsConfirmed.ShouldBeTrue();
+        booking.Status.ShouldBe(BookingStatus.Reserved);
+        booking.IsConfirmed.ShouldBeFalse();
     }
 }

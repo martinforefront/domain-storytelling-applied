@@ -16,7 +16,7 @@ public class RoomSchedule(Room room)
         }
 
         bool overlaps = bookings.Any(existing =>
-            existing.IsConfirmed &&
+            (existing.Status is BookingStatus.Reserved or BookingStatus.Confirmed) &&
             period.Start < existing.Period.End &&
             period.End > existing.Period.Start);
 
@@ -27,9 +27,16 @@ public class RoomSchedule(Room room)
 
         var booking = new Booking(bookingId, Room, period, booker);
 
-        booking.Confirm();
         bookings.Add(booking);
         return booking;
+    }
+
+    public void Confirm(int bookingId)
+    {
+        var booking = bookings.SingleOrDefault(existing => existing.Id == bookingId)
+            ?? throw new KeyNotFoundException("Bokningen finns inte i rummets schema.");
+
+        booking.Confirm();
     }
 
     public void Cancel(int bookingId)
