@@ -40,6 +40,13 @@ The solution contains a class library and tests only; there is no application.
 - `TimePeriod` is a value object that requires the end to be after the start.
   Its `Overlaps` method compares periods; touching endpoints do not overlap.
 
+Required reservation arguments (`booker`, `room`, and `period`) are checked before
+creating schedules, allocating IDs, expiring reservations, or storing bookings.
+Null arguments are rejected with `ArgumentNullException`. Room and booker names,
+booker email, and notification recipient/message must not be null, empty, or
+whitespace. Email format validation is not performed. Required constructor
+dependencies are also checked immediately.
+
 Overlapping reserved or confirmed bookings are rejected with `RoomUnavailableException`.
 Adjacent periods are allowed. A booking ID cannot be reused within a schedule,
 including after cancellation. Cancellation of an unknown booking is rejected.

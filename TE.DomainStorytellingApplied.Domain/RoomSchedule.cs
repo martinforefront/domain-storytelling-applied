@@ -11,6 +11,8 @@ public class RoomSchedule
 
     public RoomSchedule(Room room, TimeProvider? clock = null, TimeSpan? reservationDuration = null)
     {
+        ArgumentNullException.ThrowIfNull(room);
+
         Room = room;
         this.clock = clock ?? TimeProvider.System;
         this.reservationDuration = reservationDuration ?? TimeSpan.FromMinutes(10);
@@ -25,6 +27,9 @@ public class RoomSchedule
 
     public Booking Reserve(int bookingId, Booker booker, TimePeriod period)
     {
+        ArgumentNullException.ThrowIfNull(booker);
+        ArgumentNullException.ThrowIfNull(period);
+
         lock (gate)
         {
             ExpireReservations();

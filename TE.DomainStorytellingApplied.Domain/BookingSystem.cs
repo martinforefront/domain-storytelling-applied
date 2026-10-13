@@ -14,6 +14,9 @@ public class BookingSystem
     public BookingSystem(IPaymentGateway payments, NotificationService notifications,
         TimeProvider? clock = null, TimeSpan? reservationDuration = null)
     {
+        ArgumentNullException.ThrowIfNull(payments);
+        ArgumentNullException.ThrowIfNull(notifications);
+
         this.payments = payments;
         this.notifications = notifications;
         this.clock = clock ?? TimeProvider.System;
@@ -26,6 +29,10 @@ public class BookingSystem
 
     public ReservationResult Reserve(Booker booker, Room room, TimePeriod period)
     {
+        ArgumentNullException.ThrowIfNull(booker);
+        ArgumentNullException.ThrowIfNull(room);
+        ArgumentNullException.ThrowIfNull(period);
+
         var schedule = schedules.GetOrAdd(room.Id, _ => new RoomSchedule(room, clock, reservationDuration));
         int bookingId = Interlocked.Increment(ref nextBookingId);
         try
